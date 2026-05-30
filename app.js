@@ -14,5 +14,46 @@ function fd(){const form=document.getElementById('diagnosisForm');const selected
 function score(d){let s=70; if(['When there is time','Inconsistent'].includes(d.replySpeed))s-=14; if(['Often','Sometimes'].includes(d.missedCalls))s-=10; if(['Usually nothing','One follow-up sometimes'].includes(d.quoteFollowup))s-=12; if(!d.leadSources.includes('Google')&&!d.leadSources.includes('Paid ads'))s-=8; if(['0–5','6–15'].includes(d.jobs))s-=4; return Math.max(35,Math.min(86,s));}
 function buildMetrics(base){return [['Lead Generation',base-6],['Sales & Conversion',base-2],['Offers & Positioning',base-9],['Operations & Systems',base+5],['Marketing & Visibility',base+1],['Customer Journey',base-5],['Profit & Pricing',base+7]].map(([n,v])=>[n,Math.max(30,Math.min(88,v))]);}
 function renderResults(sc){document.getElementById('scoreNum').textContent=sc;const m=buildMetrics(sc);document.getElementById('metrics').innerHTML=m.map(([n,v])=>`<div class="metric"><span>${n}</span><div class="bar"><i style="width:${v}%"></i></div><b>${v}<small>/100</small></b></div>`).join('');document.getElementById('bookingLink').href=bookingURL;}
-async function submitNetlify(d,sc){const form=document.getElementById('diagnosisForm');const summary=`Score ${sc}/100. Lead sources: ${d.leadSources}. Bottleneck: ${d.bottleneck}. Recommended first move: tighten client journey before adding more demand. Booking link shown: ${bookingURL}`;document.getElementById('scoreInput').value=sc;document.getElementById('summaryInput').value=summary;const params=new URLSearchParams(new FormData(form));params.set('form-name','arena-business-diagnosis');params.set('score',sc);params.set('summary',summary);try{await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})}catch(e){console.warn(e)}}
-async function finish(){const d=fd();const sc=score(d);renderResults(sc);show('loading');await submitNetlify(d,sc);setTimeout(()=>show('result'),2600)}
+async function submitNetlify(d,sc){
+  const summary=`Score ${sc}/100. Lead sources: ${d.leadSources}. Bottleneck: ${d.bottleneck}. Recommended first move: tighten client journey before adding more demand. Booking link shown: ${bookingURL}`;
+
+  const payload={
+    access_key:"260e6b34-d40f-48cf-b7b4-da35f0483657",
+    subject:"Arena Innovations — New Business Diagnosis Lead",
+    from_name:"Arena Business Diagnosis",
+    score:sc,
+    summary:summary,
+    booking_link:bookingURL,
+    ...d
+  };
+
+  const response=await fetch("https://api.web3forms.com/submit",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "Accept":"application/json"
+    },
+    body:JSON.stringify(payload)
+  });
+
+  const result=await response.json();
+
+  if(!result.success){
+    throw new Error(result.message||"Web3Forms submission failed");
+  }
+
+  return result;
+}
+
+async function finish(){
+  const d=fd();
+  const sc=score(d);
+  renderResults(sc);
+  show('loading');
+  try{
+    await submitNetlify(d,sc);
+  }catch(e){
+    console.warn(e);
+  }
+  setTimeout(()=>show('result'),2600);
+}
